@@ -1,49 +1,82 @@
-# Stereo Matching for Depth Estimation
+# Image Depth Estimation using Stereo Matching Algorithms
 
-This project explores **Stereo Matching**, a fundamental computer vision technique used to recover 3D depth information from a pair of 2D images. The primary goal is to implement and compare different algorithms for generating a **disparity map**, which encodes depth information for each pixel. [cite_start]This project is based on the "Image Depth Estimation" module from the AI VIET NAM AI COURSE 2024. [cite: 1]
-
-[cite_start]The generated disparity maps can be applied in various fields, including **Autonomous Driving** and **Augmented Reality**. [cite: 7]
+This project explores fundamental computer vision techniques for estimating depth from a pair of 2D stereo images. By implementing and comparing several stereo matching algorithms, we generate a **disparity map** that represents the 3D structure of a scene. This is a core task in applications like autonomous driving, robotics, and augmented reality.
 
 ---
 
-##  notebooks and Usage
+## 📖 Methodologies Implemented
 
-This project's implementations are organized into two Jupyter Notebooks. To see the results, open and run the cells within each notebook. The code will process the images and save the resulting disparity maps as `.png` files in the main directory.
+The goal of stereo matching is to find the corresponding pixel in the right image for each pixel in the left image. The horizontal displacement between these corresponding pixels is the "disparity." A higher disparity value means the object is closer to the camera.
 
-### `pixel-wise-matching.ipynb`
+This project implements three classical methods to calculate the disparity map.
 
-This notebook covers **Problem 1** of the project.
-* It contains the Python code to perform pixel-wise stereo matching.
-* [cite_start]Implements both **L1 (Absolute Difference)** and **L2 (Squared Difference)** cost functions. [cite: 144, 145]
-* [cite_start]Running this notebook will generate the disparity maps for the **Tsukuba** dataset. [cite: 16]
+### 1. Pixel-wise Matching
 
-### `window-based-matching.ipynb`
+This is the most fundamental approach. For each pixel in the left image, it searches for the best matching pixel along the same horizontal line (epipolar line) in the right image.
 
-This notebook addresses **Problems 2, 3, and 4**.
-* It implements the more robust window-based matching algorithm.
-* You will find the code for:
-    * [cite_start]Window-based matching with **L1 and L2** costs (Problem 2). [cite: 336, 337]
-    * [cite_start]The setup for analyzing matching failures (Problem 3). [cite: 399]
-    * [cite_start]The improved matching algorithm using **Cosine Similarity** (Problem 4). [cite: 400]
-* [cite_start]This notebook uses the **Aloe** dataset for its examples. [cite: 17]
+* **Process**:
+    1.  For each pixel `L(y, x)` in the left image, a "cost" is calculated by comparing it to a range of pixels `R(y, x - d)` in the right image, where `d` is the disparity being tested (`d` is from 0 to `disparity_range`).
+    2.  The disparity `d_optimal` that results in the minimum cost is chosen for that pixel.
+    3.  This process is repeated for all pixels to build the disparity map.
+* **Cost Functions Used**:
+    * **L1 Distance (Sum of Absolute Differences)**: `cost = |L(y, x) - R(y, x - d)|`
+    * **L2 Distance (Sum of Squared Differences)**: `cost = (L(y, x) - R(y, x - d))^2`
+* **Limitation**: This method is very sensitive to noise and performs poorly in textureless regions, as individual pixel values are not unique enough.
+
+### 2. Window-based Matching
+
+This method improves upon pixel-wise matching by comparing a *window* of pixels instead of a single pixel. This makes the matching process more robust and stable.
+
+* **Process**:
+    1.  For each pixel `L(y, x)`, a `k x k` window (kernel) is centered around it.
+    2.  This window from the left image is compared to corresponding windows in the right image, shifted by disparity `d`.
+    3.  The cost is the sum of all the pixel-wise differences within the entire window.
+    4.  The disparity `d_optimal` that gives the minimum total cost for the window is chosen.
+* **Benefit**: By aggregating information from a local neighborhood, this method produces smoother and more reliable disparity maps compared to the pixel-wise approach.
+
+### 3. Window-based Matching with Cosine Similarity
+
+This method addresses a key weakness of L1/L2 distances: sensitivity to lighting and exposure differences between the left and right images. Instead of measuring the difference in pixel intensity, it measures the similarity in the *pattern* or *structure* of the pixel values.
+
+* **Process**:
+    1.  The `k x k` windows from the left and right images are "flattened" into vectors.
+    2.  The **Cosine Similarity** between the two vectors is calculated. This measures the angle between them, ignoring their magnitude (i.e., overall brightness).
+        $cosine\_similarity(\vec{x}, \vec{y}) = \frac{\vec{x} \cdot \vec{y}}{||\vec{x}|| \cdot ||\vec{y}||}$
+    3.  The disparity `d_optimal` that results in the *maximum* similarity score is chosen.
+* **Benefit**: This approach is highly effective at finding correct correspondences even when the two stereo images have different brightness levels, leading to more accurate results in challenging lighting conditions.
 
 ---
 
-## ⚙️ Algorithms Explained
+## 📈 Results
 
-#### Pixel-Wise Matching
-This is the most fundamental approach. [cite_start]The disparity for each pixel is calculated independently by finding the best match along the corresponding horizontal line in the other image within a specified `disparity_range`. [cite: 23]
+The project generates both grayscale and color-coded disparity maps for easy visualization.
 
-#### Window-Based Matching
-To improve upon the noise sensitivity of the pixel-wise method, this approach compares a window of pixels (`k x k`) instead of a single pixel. [cite_start]The cost is aggregated over the entire window for a more robust match, resulting in a smoother disparity map. [cite: 191, 533]
+* **Pixel-wise matching** produces noisy results, especially on the Tsukuba dataset.
+* **Window-based matching** significantly reduces noise and provides a much smoother map for the Aloe dataset.
+* **Cosine Similarity** proves to be the most robust method, successfully handling the lighting variations in the more challenging Aloe image pairs and producing the cleanest disparity map.
 
-#### Cosine Similarity Matching
-To address issues where lighting and exposure differences cause problems for L1/L2 norms, this metric is used. [cite_start]It measures the cosine of the angle between two window vectors, making it robust to illumination changes. [cite: 400]
+| Method | L1 Result (Aloe) | L2 Result (Aloe) | Cosine Similarity Result (Aloe) |
+| :--- | :---: | :---: | :---: |
+| **Disparity Map** | ![L1](https://github.com/HeigatVu/image-deep-estimation/blob/main/window_based_l1_color.png) | ![L2](https://github.com/HeigatVu/image-deep-estimation/blob/main/window_based_l2_color.png) | ![Cosine](https://github.com/HeigatVu/image-deep-estimation/blob/main/window_based_cs_color.png) |
+| **Notes** | Noisy, less defined edges. | Similar to L1 but slightly different noise pattern. | Smoothest result, clear object definition, robust to lighting. |
 
 ---
 
-## 📚 Datasets
+## 🛠️ Technologies Used
 
-This project utilizes two stereo image datasets:
-* [cite_start]**Tsukuba**: Used for Problem 1. [cite: 16]
-* [cite_start]**Aloe**: Used for Problems 2, 3, and 4. [cite: 17]
+* **Python**
+* **OpenCV-Python**: Used for all core image processing tasks, including reading images, color space conversions, and saving results.
+* **NumPy**: Used for efficient array manipulation and mathematical calculations.
+
+## 🚀 How to Run
+
+1.  **Clone the repository**.
+2.  **Install dependencies**:
+    ```bash
+    pip install opencv-python numpy
+    ```
+3.  **Run the main script** from your terminal, providing the required arguments:
+    * Paths to the left and right stereo images.
+    * `disparity_range`: The maximum disparity to search for.
+    * `kernel_size`: The size of the window for window-based methods.
+4.  The script will save the resulting disparity maps (both grayscale and color) in the project directory.
